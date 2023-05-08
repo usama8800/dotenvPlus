@@ -95,9 +95,6 @@ function setupEnv(config?: EnvConfig) {
     }
   }
 
-  env({
-
-  })
   _env = process.env;
   return _env;
 }
@@ -120,7 +117,7 @@ function setupEnv(config?: EnvConfig) {
 */
 export function env<T = NodeJS.ProcessEnv>(config?: EnvConfig) {
   if (config?.setup || !_env) {
-    setupEnv(config.defaults);
+    setupEnv(config);
   }
   return _env as T;
 }
