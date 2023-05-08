@@ -1,0 +1,37 @@
+{
+  "name": "@usama8800/dotenvplus",
+  "version": "1.1.2",
+  "description": "Dotenv+",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "prebuild": "rimraf lib",
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/usama8800/dotenvPlus.git"
+  },
+  "files": [
+    "lib/**/*"
+  ],
+  "keywords": [
+    "dotenv",
+    "env",
+    "environment"
+  ],
+  "author": "usama8800",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.59.2",
+    "@typescript-eslint/parser": "^5.59.2",
+    "@types/node": "^20.1.0",
+    "eslint": "^8.40.0",
+    "rimraf": "^3.0.2",
+    "typescript": "^5.0.4"
+  }
+}
