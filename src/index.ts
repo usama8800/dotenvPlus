@@ -6,42 +6,47 @@ interface EnvConfig {
   /**
    * Default values for environment variables
    */
-  defaults?: { [key: string]: any },
+  defaults?: { [key: string]: any };
+
+  /**
+   * Map values if default is not used
+   */
+  maps?: { [key: string]: (val: string) => any };
 
   /**
    * List of required environment variables
    */
-  required?: string[],
+  required?: string[];
 
   /**
    * Default: `.`
    *
    * Location of env files
    */
-  basePath?: string,
+  basePath?: string;
 
   /**
    * Rereads files (without overriding unless override is true)
    * No need to use for the first time this function is run
    */
-  setup?: boolean,
+  setup?: boolean;
 
   /**
    * Default: `false`
    *
    * Passed to dotenv
    */
-  override?: boolean,
+  override?: boolean;
 
   /**
    * Default: `'utf8'`
    *
    * Passed to dotenv
    */
-  encoding?: string,
+  encoding?: string;
 };
 
-let _env: any = undefined as any;
+let _env: any = undefined;
 function setupEnv(config?: EnvConfig) {
   let basePath = config?.basePath ?? '.';
   const originalMode = process.env.MODE;
@@ -78,24 +83,33 @@ function setupEnv(config?: EnvConfig) {
     if (process.env.MODE === prevMode) break;
   }
   process.env.MODE = originalMode ?? secondaryMode;
+  _env = {};
+  for (const key in process.env) {
+    if (Object.prototype.hasOwnProperty.call(process.env, key)) {
+      _env[key] = process.env[key];
+    }
+  }
 
-  if (config.defaults)
+  if (config?.maps)
+    for (const key in config.maps) {
+      if (Object.prototype.hasOwnProperty.call(config.maps, key) && Object.prototype.hasOwnProperty.call(_env, key)) {
+        _env[key] = config.maps[key](_env[key]);
+      }
+    }
+
+  if (config?.defaults)
     for (const key in config.defaults) {
       if (Object.prototype.hasOwnProperty.call(config.defaults, key)) {
-        const element = config.defaults[key];
-        process.env[key] = process.env[key] ?? element;
+        _env[key] = _env[key] ?? config.defaults[key];
       }
     }
 
   if (config?.required) {
     for (const key of config.required) {
-      if (!process.env[key]) {
-        throw new Error(`Missing required environment variable: ${key}`);
-      }
+      if (!_env[key]) throw new Error(`Missing required environment variable: ${key}`);
     }
   }
 
-  _env = process.env;
   return _env;
 }
 
