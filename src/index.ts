@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 
+type RequiredSet = string | ((env: { [key: string]: any }) => boolean) | { key: string, value: string } | { and: RequiredSet[] } | { or: RequiredSet[] };
+
 interface EnvConfig {
   /**
    * Default values for environment variables
@@ -16,7 +18,7 @@ interface EnvConfig {
   /**
    * List of required environment variables
    */
-  required?: string[];
+  required?: RequiredSet | RequiredSet[];
 
   /**
    * Default: `.`
@@ -46,7 +48,7 @@ interface EnvConfig {
   encoding?: string;
 };
 
-let _env: any = undefined;
+let _env: undefined | { [key: string]: any } = undefined;
 function setupEnv(config?: EnvConfig) {
   let basePath = config?.basePath ?? '.';
   const originalMode = process.env.MODE;
@@ -105,9 +107,11 @@ function setupEnv(config?: EnvConfig) {
     }
 
   if (config?.required) {
-    for (const key of config.required) {
-      if (!_env[key]) throw new Error(`Missing required environment variable: ${key}`);
-    }
+    let required: RequiredSet;
+    if (!Array.isArray(config.required)) required = config.required;
+    else required = { and: config.required };
+    const missing = requiredSolver(required, _env);
+    if (missing) throw new Error(`Missing required environment variable: ${missing}`);
   }
 
   return _env;
@@ -137,3 +141,32 @@ export function env<T = NodeJS.ProcessEnv>(config?: EnvConfig) {
 }
 
 export default env;
+
+function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }): string | undefined {
+  if (typeof requiredSet === 'string') {
+    if (!Object.keys(_env).includes(requiredSet)) {
+      return requiredSet;
+    }
+  } else if ('and' in requiredSet) {
+    for (const required of requiredSet.and) {
+      const missing = requiredSolver(required, _env);
+      if (missing) return missing;
+    }
+  } else if ('or' in requiredSet) {
+    let found = false;
+    const missingArray: (string | undefined)[] = [];
+    for (const required of requiredSet.or) {
+      const missing = requiredSolver(required, _env);
+      if (!missing) {
+        found = true;
+        break;
+      }
+      missingArray.push(missing);
+    }
+    if (!found) return missingArray.filter(x => x).join(', ');
+  } else if ('key' in requiredSet && 'value' in requiredSet) {
+    if (_env[requiredSet.key] !== requiredSet.value) return requiredSet.key;
+  } else {
+    if (!requiredSet(_env)) return "";
+  }
+}
