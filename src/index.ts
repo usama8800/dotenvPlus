@@ -46,6 +46,13 @@ interface EnvConfig {
    * Passed to dotenv
    */
   encoding?: string;
+
+  /**
+   * Default: `false`
+   *
+   * Keep the MODE variable after loading env files
+   */
+  keepMode?: boolean;
 };
 
 let _env: undefined | { [key: string]: any } = undefined;
@@ -84,7 +91,7 @@ function setupEnv(config?: EnvConfig) {
     }
     if (process.env.MODE === prevMode) break;
   }
-  process.env.MODE = originalMode ?? secondaryMode;
+  if (config.keepMode) process.env.MODE = originalMode ?? secondaryMode;
   _env = {};
   for (const key in process.env) {
     if (Object.prototype.hasOwnProperty.call(process.env, key)) {
