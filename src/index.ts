@@ -54,7 +54,8 @@ function setupEnv(config?: EnvConfig) {
   let localType = config?.localType ?? 'prefix';
   let modeType = config?.modeType ?? 'prefix';
 
-  loadEnvFromLines(generateFileIncludingImports(basePath, '.env', localType, modeType));
+  if (existsSync(resolve(basePath, '.env')))
+    loadEnvFromLines(generateFileIncludingImports(basePath, '.env', localType, modeType));
   const localFileName = localType === 'prefix' ? 'local.env' : '.env.local';
   if (existsSync(resolve(basePath, localFileName)))
     loadEnvFromLines(generateFileIncludingImports(basePath, localType === 'prefix' ? 'local.env' : '.env.local', localType, modeType));

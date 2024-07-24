@@ -6,6 +6,10 @@ describe('Base', () => {
     delete process.env.MODE;
   });
 
+  it('Does not require .env', () => {
+    setup({ setup: true });
+  });
+
   it('Reads .env always', () => {
     process.env.MODE = 'test1';
     const _env = setup({
