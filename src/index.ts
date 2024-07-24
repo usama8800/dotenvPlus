@@ -1,6 +1,5 @@
-import dotenv from 'dotenv';
-import { existsSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { basename, dirname, resolve } from 'path';
 
 type RequiredSet = string | ((env: { [key: string]: any }) => boolean) | { key: string, value: string } | { and: RequiredSet[] } | { or: RequiredSet[] };
 
@@ -34,94 +33,103 @@ interface EnvConfig {
   setup?: boolean;
 
   /**
-   * Default: `false`
+   * Default: prefix
    *
-   * Passed to dotenv
+   * Prefix or suffix of local .env files
    */
-  override?: boolean;
+  localType?: 'prefix' | 'suffix';
 
   /**
-   * Default: `'utf8'`
+   * Default: prefix
    *
-   * Passed to dotenv
+   * Prefix or suffix of mode .env files
    */
-  encoding?: string;
-
-  /**
-   * Default: `false`
-   *
-   * Keep the MODE variable after loading env files
-   */
-  keepMode?: boolean;
+  modeType?: 'prefix' | 'suffix';
 };
 
 let _env: undefined | { [key: string]: any } = undefined;
 function setupEnv(config?: EnvConfig) {
-  let basePath = config?.basePath ?? '.';
-  const originalMode = process.env.MODE;
-  dotenv.config({
-    path: resolve(basePath, '.env'),
-    override: config?.override,
-    encoding: config?.encoding,
-  });
-  if (existsSync(resolve(basePath, '.env.local'))) {
-    dotenv.config({
-      override: config?.override,
-      encoding: config?.encoding,
-      path: resolve(basePath, '.env.local')
-    });
-  }
-  const secondaryMode = process.env.MODE;
-  process.env.MODE = originalMode ?? secondaryMode;
-  while (true) {
-    const prevMode = process.env.MODE;
-    if (existsSync(resolve(basePath, `.env.${process.env.MODE}`))) {
-      dotenv.config({
-        override: config?.override,
-        encoding: config?.encoding,
-        path: resolve(basePath, `.env.${process.env.MODE}`)
-      });
-    }
-    if (existsSync(resolve(basePath, `.env.${process.env.MODE}.local`))) {
-      dotenv.config({
-        override: config?.override,
-        encoding: config?.encoding,
-        path: resolve(basePath, `.env.${process.env.MODE}.local`)
-      });
-    }
-    if (process.env.MODE === prevMode) break;
-  }
-  if (config.keepMode) process.env.MODE = originalMode ?? secondaryMode;
   _env = {};
-  for (const key in process.env) {
-    if (Object.prototype.hasOwnProperty.call(process.env, key)) {
-      _env[key] = process.env[key];
+  let basePath = config?.basePath ?? '.';
+  let localType = config?.localType ?? 'prefix';
+  let modeType = config?.modeType ?? 'prefix';
+
+  loadEnvFromLines(generateFileIncludingImports(basePath, '.env', localType, modeType));
+  const localFileName = localType === 'prefix' ? 'local.env' : '.env.local';
+  if (existsSync(resolve(basePath, localFileName)))
+    loadEnvFromLines(generateFileIncludingImports(basePath, localType === 'prefix' ? 'local.env' : '.env.local', localType, modeType));
+
+  _env.MODE = process.env.MODE ?? _env.MODE;
+  while (true) {
+    const prevMode = _env.MODE;
+    if (!prevMode) break;
+    const modeFileName = modeType === 'prefix' ? `${prevMode}.env` : `.env.${prevMode}`;
+    const localModeFileName = localType === 'prefix' ? `local.${modeFileName}` : `${modeFileName}.local`;
+    if (existsSync(resolve(basePath, modeFileName)))
+      loadEnvFromLines(generateFileIncludingImports(basePath, modeFileName, localType, modeType));
+    if (existsSync(resolve(basePath, localModeFileName)))
+      loadEnvFromLines(generateFileIncludingImports(basePath, localModeFileName, localType, modeType));
+    if (_env.MODE === prevMode) break;
+  }
+
+  if (config?.maps) {
+    for (const key in config.maps) {
+      if (!_env[key]) continue;
+      _env[key] = config.maps[key](_env[key]);
     }
   }
 
-  if (config?.maps)
-    for (const key in config.maps) {
-      if (Object.prototype.hasOwnProperty.call(config.maps, key) && Object.prototype.hasOwnProperty.call(_env, key)) {
-        _env[key] = config.maps[key](_env[key]);
-      }
-    }
-
-  if (config?.defaults)
+  if (config?.defaults) {
     for (const key in config.defaults) {
-      if (Object.prototype.hasOwnProperty.call(config.defaults, key)) {
-        _env[key] = _env[key] ?? config.defaults[key];
-      }
+      _env[key] = _env[key] ?? config.defaults[key];
     }
+  }
 
   if (config?.required) {
     let required: RequiredSet;
     if (!Array.isArray(config.required)) required = config.required;
     else required = { and: config.required };
-    const missing = requiredSolver(required, _env);
+    const missing = requiredErrorToString(requiredSolver(required, _env));
     if (missing) throw new Error(`Missing required environment variable: ${missing}`);
   }
 
   return _env;
+}
+
+function loadEnvFromLines(envLines: string[]) {
+  if (!_env) _env = {};
+  for (const line of envLines) {
+    const parts = line.split('=');
+    const key = parts[0];
+    if (!key || key.startsWith('#')) continue;
+    const val = parts.slice(1).join('=');
+    _env[key] = val;
+  }
+}
+
+function generateFileIncludingImports(dir: string, filename: string, localType: 'prefix' | 'suffix', modeType: 'prefix' | 'suffix'): string[] {
+  const lines = readFileSync(resolve(dir, filename), 'utf8').split(/[\r\n]+/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('import ')) {
+      const importPath = line.slice('import '.length)
+      const importDir = dirname(importPath);
+      const importFilename = modeType === 'prefix' ? `${basename(importPath)}.env` : `.env.${basename(importPath)}`;
+      const localImportFilename = localType === 'prefix' ? `local.${importFilename}` : `${importFilename}.local`;
+      const importFileExists = existsSync(resolve(dir, importDir, importFilename));
+      const localImportFileExists = existsSync(resolve(dir, importDir, localImportFilename));
+      if (importFileExists) {
+        const localLines = generateFileIncludingImports(resolve(dir, importDir), importFilename, localType, modeType);
+        lines.splice(i, 1, ...localLines);
+        if (localImportFileExists) {
+          lines.splice(i + localLines.length, 0, ...generateFileIncludingImports(resolve(dir, importDir), localImportFilename, localType, modeType));
+        }
+      } else if (localImportFileExists) {
+        lines.splice(i, 1, ...generateFileIncludingImports(resolve(dir, importDir), localImportFilename, localType, modeType));
+      }
+    }
+  }
+  return lines;
 }
 
 /**
@@ -149,19 +157,45 @@ export function env<T = NodeJS.ProcessEnv>(config?: EnvConfig) {
 
 export default env;
 
-function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }): string | undefined {
+type RequiredError = {
+  string?: string;
+  and?: [number, RequiredError];
+  or?: RequiredError[];
+  kv?: {
+    key: string;
+    value: string;
+  },
+};
+
+function requiredErrorToString(requiredError?: RequiredError): string {
+  if (!requiredError) return '';
+  if ('string' in requiredError) {
+    return requiredError.string!;
+  } else if ('and' in requiredError) {
+    const [index, error] = requiredError.and!;
+    return `${requiredErrorToString(error)}`;
+  } else if ('or' in requiredError) {
+    return `[${requiredError.or!.map(requiredErrorToString).join(', ')}]`;
+  } else if ('kv' in requiredError) {
+    return `${requiredError.kv!.key}=${requiredError.kv!.value}`;
+  } else {
+    throw new Error('Invalid required error');
+  }
+}
+
+function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }): RequiredError | undefined {
   if (typeof requiredSet === 'string') {
     if (!Object.keys(_env).includes(requiredSet)) {
-      return requiredSet;
+      return { string: requiredSet };
     }
   } else if ('and' in requiredSet) {
-    for (const required of requiredSet.and) {
-      const missing = requiredSolver(required, _env);
-      if (missing) return missing;
+    for (let i = 0; i < requiredSet.and.length; i++) {
+      const missing = requiredSolver(requiredSet.and[i], _env);
+      if (missing) return { and: [i, missing] };
     }
   } else if ('or' in requiredSet) {
     let found = false;
-    const missingArray: (string | undefined)[] = [];
+    const missingArray: RequiredError[] = [];
     for (const required of requiredSet.or) {
       const missing = requiredSolver(required, _env);
       if (!missing) {
@@ -170,10 +204,11 @@ function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }):
       }
       missingArray.push(missing);
     }
-    if (!found) return missingArray.filter(x => x).join(', ');
+    if (!found) return { or: missingArray };
   } else if ('key' in requiredSet && 'value' in requiredSet) {
-    if (_env[requiredSet.key] !== requiredSet.value) return requiredSet.key;
+    if (_env[requiredSet.key] !== requiredSet.value)
+      return { kv: { key: requiredSet.key, value: requiredSet.value } };
   } else {
-    if (!requiredSet(_env)) return "";
+    throw new Error('Invalid required set');
   }
 }
