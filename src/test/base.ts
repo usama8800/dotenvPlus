@@ -84,6 +84,15 @@ describe('Base', () => {
     expect(_env.SET_IN_LOCAL_DEEP_IMPORT).to.equal('1');
   });
 
+  it('Mode change in import ignored', () => {
+    process.env.MODE = 'mode2';
+    const env = setup({
+      setup: true,
+      basePath: 'src/test',
+    });
+    expect(env.MODE).to.equal('mode2');
+  });
+
   it('Required existing key', () => {
     setup({
       setup: true,

@@ -119,15 +119,12 @@ function generateFileIncludingImports(dir: string, filename: string, localType: 
       const localImportFilename = localType === 'prefix' ? `local.${importFilename}` : `${importFilename}.local`;
       const importFileExists = existsSync(resolve(dir, importDir, importFilename));
       const localImportFileExists = existsSync(resolve(dir, importDir, localImportFilename));
-      if (importFileExists) {
-        const localLines = generateFileIncludingImports(resolve(dir, importDir), importFilename, localType, modeType);
-        lines.splice(i, 1, ...localLines);
-        if (localImportFileExists) {
-          lines.splice(i + localLines.length, 0, ...generateFileIncludingImports(resolve(dir, importDir), localImportFilename, localType, modeType));
-        }
-      } else if (localImportFileExists) {
-        lines.splice(i, 1, ...generateFileIncludingImports(resolve(dir, importDir), localImportFilename, localType, modeType));
-      }
+      const importedLines: string[] = [];
+      if (localImportFileExists)
+        importedLines.push(...generateFileIncludingImports(resolve(dir, importDir), localImportFilename, localType, modeType));
+      if (importFileExists)
+        importedLines.push(...generateFileIncludingImports(resolve(dir, importDir), importFilename, localType, modeType));
+      lines.splice(i, 1, ...importedLines.filter(l => !l.startsWith('MODE=')));
     }
   }
   return lines;

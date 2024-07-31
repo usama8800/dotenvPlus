@@ -67,7 +67,7 @@ SECRET=VAL2
 PORT=3000
 ```
 
-Imports are replaced with the content of the file
+Imports are replaced with the content of the file expect lines which set MODE
 
 ### Changing modes (Old)
 
