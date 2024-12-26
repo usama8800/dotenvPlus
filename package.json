@@ -1,6 +1,6 @@
 {
   "name": "@usama8800/dotenvplus",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "description": "Dotenv+",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

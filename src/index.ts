@@ -70,6 +70,10 @@ function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
     if (_env.MODE === prevMode) break;
   }
 
+  for (const key in _env) {
+    if (_env[key] === '') delete _env[key];
+  }
+
   if (config?.schema) {
     const parsed = config.schema.safeParse(_env);
     if (!parsed.success) throw parsed.error;
@@ -203,5 +207,3 @@ export const booleanSchema = z.union([
   z.boolean(),
   z.string().toLowerCase().transform((val) => ['1', 'true'].includes(val)).pipe(z.boolean()),
 ]);
-
-// export const booleanSchema = z.preprocess(v => ['1', 'true', 1, true].includes(v as any) as boolean, z.boolean());
