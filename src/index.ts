@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 type RequiredSet = string | ((env: { [key: string]: any }) => boolean) | { key: string, value: string } | { and: RequiredSet[] } | { or: RequiredSet[] };
 
-interface EnvConfig<T> {
+interface EnvConfig<T extends z.ZodTypeAny> {
 
   /**
    * List of required environment variables
@@ -14,7 +14,7 @@ interface EnvConfig<T> {
   /**
    * Zod schema
    */
-  schema?: z.ZodSchema<T>
+  schema?: T;
 
   /**
    * Default: `.`
@@ -45,7 +45,7 @@ interface EnvConfig<T> {
 };
 
 let _env: undefined | { [key: string]: any } = undefined;
-function setupEnv<T>(config?: EnvConfig<T>) {
+function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
   _env = {};
   let basePath = config?.basePath ?? '.';
   let localType = config?.localType ?? 'prefix';
@@ -136,11 +136,11 @@ function generateFileIncludingImports(dir: string, filename: string, localType: 
 
   @returns { T }
 */
-export function loadEnv<T = NodeJS.ProcessEnv>(config?: EnvConfig<T>): T {
+export function loadEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>): z.infer<T> {
   if (config?.setup || !_env) {
-    setupEnv<T>(config);
+    setupEnv(config);
   }
-  return _env as T;
+  return _env as z.infer<T>;
 }
 
 type RequiredError = {
@@ -199,8 +199,9 @@ function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }):
   }
 }
 
-export const booleanSchema = z.preprocess((val) => {
-  if (!val) return undefined;
-  if (typeof val === 'string' && ['1', 'true'].includes(val.toLowerCase())) return true;
-  return false;
-}, z.boolean());
+export const booleanSchema = z.union([
+  z.boolean(),
+  z.string().toLowerCase().transform((val) => ['1', 'true'].includes(val)).pipe(z.boolean()),
+]);
+
+// export const booleanSchema = z.preprocess(v => ['1', 'true', 1, true].includes(v as any) as boolean, z.boolean());
