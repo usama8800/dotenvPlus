@@ -1,5 +1,6 @@
 import { expect } from "chai";
-import setup from "../../src/index";
+import { z } from "zod";
+import { loadEnv as setup } from "../../src/index";
 
 describe('Base', () => {
   beforeEach(() => {
@@ -118,9 +119,9 @@ describe('Base', () => {
     const _env = setup({
       setup: true,
       basePath: 'src/test',
-      defaults: {
-        MISSING: 'default',
-      },
+      schema: z.object({
+        MISSING: z.string().default('default'),
+      }),
     });
     expect(_env.MISSING).to.equal('default');
   });
@@ -129,9 +130,9 @@ describe('Base', () => {
     const _env = setup({
       setup: true,
       basePath: 'src/test',
-      defaults: {
-        SET_IN_ENV: 'default',
-      },
+      schema: z.object({
+        SET_IN_ENV: z.string().default('default'),
+      }),
     });
     expect(_env.SET_IN_ENV).to.equal('1');
   });
@@ -140,9 +141,9 @@ describe('Base', () => {
     const _env = setup({
       setup: true,
       basePath: 'src/test',
-      maps: {
-        SET_IN_ENV: val => +val,
-      },
+      schema: z.object({
+        SET_IN_ENV: z.coerce.number(),
+      }),
     });
     expect(_env.SET_IN_ENV).to.equal(1);
   });
@@ -151,12 +152,9 @@ describe('Base', () => {
     const _env = setup({
       setup: true,
       basePath: 'src/test',
-      maps: {
-        MISSING: val => +val,
-      },
-      defaults: {
-        MISSING: 2,
-      },
+      schema: z.object({
+        MISSING: z.coerce.number().default(2),
+      }),
     });
     expect(_env.MISSING).to.equal(2);
   });

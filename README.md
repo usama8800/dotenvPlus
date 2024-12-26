@@ -1,22 +1,16 @@
 # Dotenv+
 
-Dotenv+ reads `.env` and `mode.env` files and returns them as an object. You can map keys, have default values for keys, and set required keys. 
+Dotenv+ reads `.env` and `mode.env` files and returns them as an object. You can pass in a zod schema which will pe parsed against the keys in the env files. You can alos set required keys with conditions (check the type).
+
+This package also export a zod schema `booleanSchema` which makes 1 and true equal to true and everything else false
 
 ## Usage
 
 ```ts
-import dotenvPlus from '@usama8800/dotenvplus';
+import { loadEnv, booleanSchema } from '@usama8800/dotenvplus';
+import { z } from 'zod';
 
-const env = dotenvPlus<{
-  MODE: string;
-  PORT: number;
-  SECRET_KEY: string;
-  DEFAULT_USER_PASSWORD: string;
-  DEFAULT_USER_USERNAME: string;
-  CONNECTION_STRING: string;
-  LOGGING: boolean;
-  DISCORD_HOOK?: string;
-}>({
+const env = dotenvPlus({
   required: [
   'PORT',
   'SECRET_KEY',
@@ -24,14 +18,10 @@ const env = dotenvPlus<{
   'DEFAULT_USER_USERNAME',
   'CONNECTION_STRING',
   ],
-  defaults: {
-    PORT: 3000,
-    LOGGING: true,
-  },
-  maps: {
-    PORT: parseInt,
-    LOGGING: (val: string) => val.toLowerCase() === 'true',
-  },
+  schema: z.object({
+    PORT: z.coerce.number().default(3000),
+    LOGGING: booleanSchema.default(true),
+  }),
 });
 ```
 

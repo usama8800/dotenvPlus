@@ -1,23 +1,20 @@
 import { existsSync, readFileSync } from 'fs';
 import { basename, dirname, resolve } from 'path';
+import { z } from 'zod';
 
 type RequiredSet = string | ((env: { [key: string]: any }) => boolean) | { key: string, value: string } | { and: RequiredSet[] } | { or: RequiredSet[] };
 
-interface EnvConfig {
-  /**
-   * Default values for environment variables
-   */
-  defaults?: { [key: string]: any };
-
-  /**
-   * Map values if default is not used
-   */
-  maps?: { [key: string]: (val: string) => any };
+interface EnvConfig<T> {
 
   /**
    * List of required environment variables
    */
   required?: RequiredSet | RequiredSet[];
+
+  /**
+   * Zod schema
+   */
+  schema?: z.ZodSchema<T>
 
   /**
    * Default: `.`
@@ -48,7 +45,7 @@ interface EnvConfig {
 };
 
 let _env: undefined | { [key: string]: any } = undefined;
-function setupEnv(config?: EnvConfig) {
+function setupEnv<T>(config?: EnvConfig<T>) {
   _env = {};
   let basePath = config?.basePath ?? '.';
   let localType = config?.localType ?? 'prefix';
@@ -73,24 +70,17 @@ function setupEnv(config?: EnvConfig) {
     if (_env.MODE === prevMode) break;
   }
 
-  if (config?.maps) {
-    for (const key in config.maps) {
-      if (!_env[key]) continue;
-      _env[key] = config.maps[key](_env[key]);
-    }
-  }
-
-  if (config?.defaults) {
-    for (const key in config.defaults) {
-      _env[key] = _env[key] ?? config.defaults[key];
-    }
+  if (config?.schema) {
+    const parsed = config.schema.safeParse(_env);
+    if (!parsed.success) throw parsed.error;
+    _env = parsed.data as any;
   }
 
   if (config?.required) {
     let required: RequiredSet;
     if (!Array.isArray(config.required)) required = config.required;
     else required = { and: config.required };
-    const missing = requiredErrorToString(requiredSolver(required, _env));
+    const missing = requiredErrorToString(requiredSolver(required, _env as any));
     if (missing) throw new Error(`Missing required environment variable: ${missing}`);
   }
 
@@ -144,16 +134,14 @@ function generateFileIncludingImports(dir: string, filename: string, localType: 
 
   @param {EnvConfig} [config]
 
-  @returns { (NodeJS.ProcessEnv | T) }
+  @returns { T }
 */
-export function env<T = NodeJS.ProcessEnv>(config?: EnvConfig) {
+export function loadEnv<T = NodeJS.ProcessEnv>(config?: EnvConfig<T>): T {
   if (config?.setup || !_env) {
-    setupEnv(config);
+    setupEnv<T>(config);
   }
   return _env as T;
 }
-
-export default env;
 
 type RequiredError = {
   string?: string;
@@ -210,3 +198,9 @@ function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }):
     throw new Error('Invalid required set');
   }
 }
+
+export const booleanSchema = z.preprocess((val) => {
+  if (!val) return undefined;
+  if (typeof val === 'string' && ['1', 'true'].includes(val.toLowerCase())) return true;
+  return false;
+}, z.boolean());

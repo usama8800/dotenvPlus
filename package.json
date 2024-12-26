@@ -1,6 +1,6 @@
 {
   "name": "@usama8800/dotenvplus",
-  "version": "2.2.0",
+  "version": "3.1.0",
   "description": "Dotenv+",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -41,6 +41,7 @@
     "nodemon": "^3.1.4",
     "rimraf": "^6.0.1",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "zod": "^3.24.1"
   }
 }
