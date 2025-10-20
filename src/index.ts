@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 type RequiredSet = string | ((env: { [key: string]: any }) => boolean) | { key: string, value: string } | { and: RequiredSet[] } | { or: RequiredSet[] };
 
-interface EnvConfig<T extends z.ZodTypeAny> {
+interface EnvConfig<T extends z.ZodObject> {
 
   /**
    * List of required environment variables
@@ -14,7 +14,7 @@ interface EnvConfig<T extends z.ZodTypeAny> {
   /**
    * Zod schema
    */
-  schema?: T;
+  schema: T;
 
   /**
    * Default: `.`
@@ -45,8 +45,8 @@ interface EnvConfig<T extends z.ZodTypeAny> {
 };
 
 let _env: undefined | { [key: string]: any } = undefined;
-function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
-  _env = { ...process.env };
+function setupEnv<T extends z.ZodObject>(config: EnvConfig<T>) {
+  _env = { ...process.env } as { [key: string]: any };
 
   let basePath = config?.basePath ?? '.';
   let localType = config?.localType ?? 'prefix';
@@ -57,6 +57,12 @@ function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
   const localFileName = localType === 'prefix' ? 'local.env' : '.env.local';
   if (existsSync(resolve(basePath, localFileName)))
     loadEnvFromLines(generateFileIncludingImports(basePath, localType === 'prefix' ? 'local.env' : '.env.local', localType, modeType));
+
+  _env.MODE = process.env.MODE ?? config.schema.shape.MODE?.default ?? _env.MODE ?? '';
+  const keys = Object.keys(config.schema.shape);
+  for (const key of keys) {
+    if (process.env[key]) _env[key] = process.env[key];
+  }
 
   while (true) {
     const prevMode = _env.MODE;
@@ -75,11 +81,9 @@ function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
     if (_env[key] === '') delete _env[key];
   }
 
-  if (config?.schema) {
-    const parsed = config.schema.safeParse(_env);
-    if (!parsed.success) throw parsed.error;
-    _env = parsed.data as any;
-  }
+  const parsed = config.schema.safeParse(_env);
+  if (!parsed.success) throw parsed.error;
+  _env = parsed.data as any;
 
   if (config?.required) {
     let required: RequiredSet;
@@ -141,8 +145,8 @@ function generateFileIncludingImports(dir: string, filename: string, localType: 
 
   @returns { T }
 */
-export function loadEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>): z.infer<T> {
-  if (config?.setup || !_env) {
+export function loadEnv<T extends z.ZodObject>(config: EnvConfig<T>): z.infer<T> {
+  if (config.setup || !_env) {
     setupEnv(config);
   }
   return _env as z.infer<T>;

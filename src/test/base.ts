@@ -8,90 +8,99 @@ describe('Base', () => {
   });
 
   it('Does not require .env', () => {
-    setup({ setup: true });
+    setup({ setup: true, schema: z.object({}) });
   });
 
   it('Reads .env always', () => {
     process.env.MODE = 'test1';
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_ENV: z.string() }),
     });
     expect(_env.SET_IN_ENV).to.equal('1');
   });
 
   it('Reads local.env always', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_LOCAL_ENV: z.string() }),
     });
     expect(_env.SET_IN_LOCAL_ENV).to.equal('1');
   });
 
   it('Overrides .env.MODE with process.env.MODE', () => {
     process.env.MODE = 'required';
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({}),
     });
     expect(_env.SET_IN_MODE).to.not.be.ok;
   });
 
   it('Moves from mode.env to local.mode.env', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_LOCAL_MODE: z.string() }),
     });
     expect(_env.SET_IN_LOCAL_MODE).to.equal('1');
   });
 
   it('Moves from .env to mode.env to required.env', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_REQUIRED: z.string() }),
     });
     expect(_env.SET_IN_REQUIRED).to.equal('1');
   });
 
   it('Imports import.env from mode.env', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_IMPORT: z.string() }),
     });
     expect(_env.SET_IN_IMPORT).to.equal('1');
   });
 
   it('Imports local.import.env from mode.env', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_LOCAL_IMPORT: z.string() }),
     });
     expect(_env.SET_IN_LOCAL_IMPORT).to.equal('1');
   });
 
   it('Imports deep.import.env from import.env from mode.env', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_DEEP_IMPORT: z.string() }),
     });
     expect(_env.SET_IN_DEEP_IMPORT).to.equal('1');
   });
 
   it('Imports local.deep.import.env from import.env from mode.env', () => {
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ SET_IN_LOCAL_DEEP_IMPORT: z.string() }),
     });
     expect(_env.SET_IN_LOCAL_DEEP_IMPORT).to.equal('1');
   });
 
   it('Mode change in import ignored', () => {
     process.env.MODE = 'mode2';
-    const env: any = setup({
+    const env = setup({
       setup: true,
       basePath: 'src/test',
+      schema: z.object({ MODE: z.string() }),
     });
-    console.log(env);
     expect(env.MODE).to.equal('mode2');
   });
 
@@ -100,6 +109,7 @@ describe('Base', () => {
       setup: true,
       basePath: 'src/test',
       required: ['SET_IN_ENV'],
+      schema: z.object({ SET_IN_ENV: z.string() }),
     });
   });
 
@@ -109,6 +119,7 @@ describe('Base', () => {
         setup: true,
         basePath: 'src/test',
         required: ['MISSING'],
+        schema: z.object({ SET_IN_ENV: z.string() }),
       });
       expect.fail('Expected error to be thrown');
     } catch (error: any) {
@@ -170,6 +181,7 @@ describe('Base', () => {
           { and: [{ key: 'REQUIRED_3', value: '3' }, 'REQUIRED_2'] },
         ]
       }],
+      schema: z.object({ REQUIRED_1: z.string(), REQUIRED_2: z.string(), REQUIRED_3: z.string() }),
     });
   });
 
@@ -184,6 +196,7 @@ describe('Base', () => {
             { and: [{ key: 'REQUIRED_3', value: '3' }, 'REQUIRED_4'] },
           ]
         }],
+        schema: z.object({ REQUIRED_1: z.string(), REQUIRED_2: z.string(), REQUIRED_3: z.string() }),
       });
       expect.fail('Expected error to be thrown');
     } catch (error: any) {
@@ -202,6 +215,7 @@ describe('Base', () => {
             { and: [{ key: 'REQUIRED_3', value: '2' }, 'REQUIRED_4'] },
           ]
         }],
+        schema: z.object({ REQUIRED_1: z.string(), REQUIRED_3: z.string().optional(), REQUIRED_4: z.string().optional() }),
       });
       expect.fail('Expected error to be thrown');
     } catch (error: any) {
@@ -211,10 +225,10 @@ describe('Base', () => {
 
   it('Adds items from process.env', () => {
     process.env.SET_IN_PROCESS_ENV = '1';
-    const _env: any = setup({
+    const _env = setup({
       setup: true,
+      schema: z.object({ SET_IN_PROCESS_ENV: z.string() }),
     });
     expect(_env.SET_IN_PROCESS_ENV).to.equal('1');
-    delete process.env.SET_IN_PROCESS_ENV;
   });
 });
