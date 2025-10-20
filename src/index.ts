@@ -46,7 +46,8 @@ interface EnvConfig<T extends z.ZodTypeAny> {
 
 let _env: undefined | { [key: string]: any } = undefined;
 function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
-  _env = {};
+  _env = { ...process.env };
+
   let basePath = config?.basePath ?? '.';
   let localType = config?.localType ?? 'prefix';
   let modeType = config?.modeType ?? 'prefix';
@@ -57,7 +58,6 @@ function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
   if (existsSync(resolve(basePath, localFileName)))
     loadEnvFromLines(generateFileIncludingImports(basePath, localType === 'prefix' ? 'local.env' : '.env.local', localType, modeType));
 
-  _env.MODE = process.env.MODE ?? _env.MODE;
   while (true) {
     const prevMode = _env.MODE;
     if (!prevMode) break;
@@ -69,6 +69,7 @@ function setupEnv<T extends z.ZodTypeAny>(config?: EnvConfig<T>) {
       loadEnvFromLines(generateFileIncludingImports(basePath, localModeFileName, localType, modeType));
     if (_env.MODE === prevMode) break;
   }
+  if (process.env.MODE) _env.MODE = process.env.MODE;
 
   for (const key in _env) {
     if (_env[key] === '') delete _env[key];

@@ -13,7 +13,7 @@ describe('Base', () => {
 
   it('Reads .env always', () => {
     process.env.MODE = 'test1';
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -21,7 +21,7 @@ describe('Base', () => {
   });
 
   it('Reads local.env always', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -30,7 +30,7 @@ describe('Base', () => {
 
   it('Overrides .env.MODE with process.env.MODE', () => {
     process.env.MODE = 'required';
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -38,7 +38,7 @@ describe('Base', () => {
   });
 
   it('Moves from mode.env to local.mode.env', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -46,7 +46,7 @@ describe('Base', () => {
   });
 
   it('Moves from .env to mode.env to required.env', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -54,7 +54,7 @@ describe('Base', () => {
   });
 
   it('Imports import.env from mode.env', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -62,7 +62,7 @@ describe('Base', () => {
   });
 
   it('Imports local.import.env from mode.env', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -70,7 +70,7 @@ describe('Base', () => {
   });
 
   it('Imports deep.import.env from import.env from mode.env', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -78,7 +78,7 @@ describe('Base', () => {
   });
 
   it('Imports local.deep.import.env from import.env from mode.env', () => {
-    const _env = setup({
+    const _env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
@@ -87,10 +87,11 @@ describe('Base', () => {
 
   it('Mode change in import ignored', () => {
     process.env.MODE = 'mode2';
-    const env = setup({
+    const env: any = setup({
       setup: true,
       basePath: 'src/test',
     });
+    console.log(env);
     expect(env.MODE).to.equal('mode2');
   });
 
@@ -206,5 +207,14 @@ describe('Base', () => {
     } catch (error: any) {
       expect(error.message).to.equal('Missing required environment variable: [REQUIRED_3=1, REQUIRED_3=2]');
     }
+  });
+
+  it('Adds items from process.env', () => {
+    process.env.SET_IN_PROCESS_ENV = '1';
+    const _env: any = setup({
+      setup: true,
+    });
+    expect(_env.SET_IN_PROCESS_ENV).to.equal('1');
+    delete process.env.SET_IN_PROCESS_ENV;
   });
 });
