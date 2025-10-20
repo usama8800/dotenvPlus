@@ -42,15 +42,23 @@ interface EnvConfig<T extends z.ZodObject> {
    * Prefix or suffix of mode .env files
    */
   modeType?: 'prefix' | 'suffix';
+
+  /**
+   * Default: false
+   *
+   * Print debug logs
+   */
+  debug?: boolean;
 };
 
 let _env: undefined | { [key: string]: any } = undefined;
 function setupEnv<T extends z.ZodObject>(config: EnvConfig<T>) {
-  _env = { ...process.env } as { [key: string]: any };
+  _env = {};
 
   let basePath = config?.basePath ?? '.';
   let localType = config?.localType ?? 'prefix';
   let modeType = config?.modeType ?? 'prefix';
+
 
   if (existsSync(resolve(basePath, '.env')))
     loadEnvFromLines(generateFileIncludingImports(basePath, '.env', localType, modeType));
@@ -58,7 +66,9 @@ function setupEnv<T extends z.ZodObject>(config: EnvConfig<T>) {
   if (existsSync(resolve(basePath, localFileName)))
     loadEnvFromLines(generateFileIncludingImports(basePath, localType === 'prefix' ? 'local.env' : '.env.local', localType, modeType));
 
-  _env.MODE = process.env.MODE ?? config.schema.shape.MODE?.default ?? _env.MODE ?? '';
+  debug(`DotEnvPlus MODE from .env and local.env: ${_env.MODE}`);
+  _env.MODE = process.env.MODE || config.schema.shape.MODE?._def?.defaultValue || _env.MODE || '';
+  debug(`DotEnvPlus MODE after reset: ${_env.MODE}`);
   const keys = Object.keys(config.schema.shape);
   for (const key of keys) {
     if (process.env[key]) _env[key] = process.env[key];
@@ -73,6 +83,7 @@ function setupEnv<T extends z.ZodObject>(config: EnvConfig<T>) {
       loadEnvFromLines(generateFileIncludingImports(basePath, modeFileName, localType, modeType));
     if (existsSync(resolve(basePath, localModeFileName)))
       loadEnvFromLines(generateFileIncludingImports(basePath, localModeFileName, localType, modeType));
+    debug(`DotEnvPlus MODE: ${_env.MODE}`);
     if (_env.MODE === prevMode) break;
   }
   if (process.env.MODE) _env.MODE = process.env.MODE;
@@ -108,6 +119,7 @@ function loadEnvFromLines(envLines: string[]) {
 }
 
 function generateFileIncludingImports(dir: string, filename: string, localType: 'prefix' | 'suffix', modeType: 'prefix' | 'suffix'): string[] {
+  debug(`DotEnvPlus reading: ${dir}/${filename}`);
   const lines = readFileSync(resolve(dir, filename), 'utf8').split(/[\r\n]+/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -126,6 +138,7 @@ function generateFileIncludingImports(dir: string, filename: string, localType: 
       lines.splice(i, 1, ...importedLines.filter(l => !l.startsWith('MODE=')));
     }
   }
+  debug(`DotEnvPlus loaded : ${dir}/${filename}`);
   return lines;
 }
 
@@ -146,6 +159,7 @@ function generateFileIncludingImports(dir: string, filename: string, localType: 
   @returns { T }
 */
 export function loadEnv<T extends z.ZodObject>(config: EnvConfig<T>): z.infer<T> {
+  if (config.debug) debugging = true;
   if (config.setup || !_env) {
     setupEnv(config);
   }
@@ -206,6 +220,11 @@ function requiredSolver(requiredSet: RequiredSet, _env: { [key: string]: any }):
   } else {
     throw new Error('Invalid required set');
   }
+}
+
+let debugging = false;
+function debug(message: string) {
+  if (debugging) console.log(message);
 }
 
 export const booleanSchema = z.union([

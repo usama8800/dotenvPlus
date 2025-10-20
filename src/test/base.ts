@@ -231,4 +231,13 @@ describe('Base', () => {
     });
     expect(_env.SET_IN_PROCESS_ENV).to.equal('1');
   });
+
+  it('Default MODE', () => {
+    const _env = setup({
+      setup: true,
+      basePath: 'src/test',
+      schema: z.object({ MODE: z.string().default('test') }),
+    });
+    expect(_env.MODE).to.equal('test');
+  });
 });
